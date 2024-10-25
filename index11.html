@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valor Promedio de una Función</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.24.2/plotly.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #000000; 
+            color: #009e35; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 20px; 
+        }
+        .calculator { 
+            border: 1px solid #ccc; 
+            padding: 20px; 
+            border-radius: 10px; 
+            width: 100%; 
+            max-width: 600px; 
+            background: #fff; 
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); 
+        }
+        .calculator input, .calculator button { 
+            width: 100%; 
+            padding: 10px; 
+            margin: 5px 0; 
+            border-radius: 5px; 
+            border: 1px solid #ccc; 
+            font-size: 1em; 
+        }
+        .calculator button {
+            background-color: #00853c;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .calculator button:hover {
+            background-color: #1d4ed8;
+        }
+        .result { 
+            font-weight: bold; 
+            color: #009242; 
+            margin-top: 10px; 
+            padding: 10px;
+            background-color: #f8fafc;
+            border-radius: 5px;
+        }
+        #plot {
+            width: 100%;
+            height: 400px;
+            margin-top: 20px;
+        }
+        .error {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        .formula {
+            background-color: #f8fafc;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Valor Promedio de una Función</h1>
+    <div class="calculator">
+        <div class="formula">
+            Fórmula: f_avg = (1/(b-a)) ∫[a→b] f(x) dx
+        </div>
+        <label for="function-input">Función (en términos de x):</label>
+        <input type="text" id="function-input" placeholder="Ej. x^2" value="x^2">
+        <label for="limit-a">Límite inferior (a):</label>
+        <input type="number" id="limit-a" value="0" step="0.1">
+        <label for="limit-b">Límite superior (b):</label>
+        <input type="number" id="limit-b" value="1" step="0.1">
+        <button onclick="calculateAverageValue()">Calcular Valor Promedio</button>
+        <div class="result" id="result-output"></div>
+        <div id="plot"></div>
+    </div>
+
+    <script>
+        function numericalIntegration(func, a, b, n = 1000) {
+            const h = (b - a) / n;
+            let sum = 0.5 * (func(a) + func(b));
+            
+            for (let i = 1; i < n; i++) {
+                const x = a + i * h;
+                sum += func(x);
+            }
+            
+            return h * sum;
+        }
+
+        function calculateAverageValue() {
+            const funcInput = document.getElementById("function-input").value;
+            const a = parseFloat(document.getElementById("limit-a").value);
+            const b = parseFloat(document.getElementById("limit-b").value);
+
+            try {
+                // Crear una función evaluable de mathjs
+                const f = math.parse(funcInput);
+                
+                // Crear la función para la integral
+                const integrand = (x) => {
+                    return f.evaluate({x: x});
+                };
+                
+                // Calcular la integral numéricamente
+                const integralValue = numericalIntegration(integrand, a, b);
+                
+                // Calcular el valor promedio
+                const averageValue = integralValue / (b - a);
+                
+                // Mostrar el resultado redondeado a 4 decimales
+                document.getElementById("result-output").innerHTML = 
+                    `El valor promedio es: ${math.round(averageValue, 4)}`;
+
+                // Graficar la función y el valor promedio
+                plotFunction(f, a, b, averageValue);
+            } catch (error) {
+                document.getElementById("result-output").innerHTML = 
+                    `<span class="error">Error: ${error.message}. Verifica la sintaxis de la función.</span>`;
+            }
+        }
+
+        function plotFunction(f, a, b, avgValue) {
+            // Generar puntos para la gráfica de la función
+            const points = 200;
+            const dx = (b - a) / points;
+            const x = [];
+            const y = [];
+            const yAvg = [];
+
+            for (let i = 0; i <= points; i++) {
+                const xi = a + i * dx;
+                x.push(xi);
+                try {
+                    y.push(f.evaluate({x: xi}));
+                    yAvg.push(avgValue);
+                } catch {
+                    y.push(null);
+                    yAvg.push(null);
+                }
+            }
+
+            // Crear la gráfica
+            const functionTrace = {
+                x: x,
+                y: y,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'f(x)',
+                line: {
+                    color: '#2b6cb0',
+                    width: 2
+                }
+            };
+
+            const averageTrace = {
+                x: x,
+                y: yAvg,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Valor Promedio',
+                line: {
+                    color: '#dc2626',
+                    width: 2,
+                    dash: 'dash'
+                }
+            };
+
+            const layout = {
+                title: 'Gráfica de la función y valor promedio',
+                xaxis: {
+                    title: 'x',
+                    zeroline: true
+                },
+                yaxis: {
+                    title: 'y',
+                    zeroline: true
+                },
+                showlegend: true
+            };
+
+            Plotly.newPlot('plot', [functionTrace, averageTrace], layout);
+        }
+
+        // Calcular inicialmente con los valores por defecto
+        calculateAverageValue();
+    </script>
+</body>
+</html>
